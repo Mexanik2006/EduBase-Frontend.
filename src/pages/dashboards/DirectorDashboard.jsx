@@ -1,16 +1,10 @@
 import { Routes, Route } from "react-router-dom"
+import UserManagement from "../../components/users/UserManagement"
 
 const DirectorStats = () => (
     <div className="bg-white rounded-xl p-6 shadow-sm">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Direktor Statistikasi</h2>
         <p className="text-gray-600">Bu yerda direktor uchun statistik ma'lumotlar bo'ladi</p>
-    </div>
-)
-
-const DirectorUsers = () => (
-    <div className="bg-white rounded-xl p-6 shadow-sm">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Foydalanuvchilar</h2>
-        <p className="text-gray-600">Barcha foydalanuvchilar ro'yxati</p>
     </div>
 )
 
@@ -39,7 +33,7 @@ const DirectorDashboard = () => {
     return (
         <Routes>
             <Route path="/stats" element={<DirectorStats />} />
-            <Route path="/users" element={<DirectorUsers />} />
+            <Route path="/users" element={<UserManagement />} />
             <Route path="/finance" element={<DirectorFinance />} />
             <Route path="/reports" element={<DirectorReports />} />
             <Route path="/settings" element={<DirectorSettings />} />

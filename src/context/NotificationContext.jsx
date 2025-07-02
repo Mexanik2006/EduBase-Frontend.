@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useState, useCallback } from "react"
 
 const NotificationContext = createContext()
 
@@ -15,8 +15,8 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([])
 
-    const showNotification = (message, type = "info") => {
-        const id = Date.now()
+    const showNotification = useCallback((message, type = "info") => {
+        const id = Date.now() + Math.random() // Unique ID
         const notification = { id, message, type }
 
         setNotifications((prev) => [...prev, notification])
@@ -25,15 +25,17 @@ export const NotificationProvider = ({ children }) => {
         setTimeout(() => {
             setNotifications((prev) => prev.filter((n) => n.id !== id))
         }, 5000)
-    }
+    }, [])
 
-    const removeNotification = (id) => {
+    const removeNotification = useCallback((id) => {
         setNotifications((prev) => prev.filter((n) => n.id !== id))
+    }, [])
+
+    const value = {
+        showNotification,
+        notifications,
+        removeNotification,
     }
 
-    return (
-        <NotificationContext.Provider value={{ showNotification, notifications, removeNotification }}>
-            {children}
-        </NotificationContext.Provider>
-    )
+    return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
 }

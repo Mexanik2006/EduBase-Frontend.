@@ -1,6 +1,8 @@
 "use client"
+
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
+import { useMemo } from "react"
 import {
     X,
     Home,
@@ -19,8 +21,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     const { user } = useAuth()
     const location = useLocation()
 
-    // Role-based menu items
-    const getMenuItems = () => {
+    // Memoize menu items to prevent recalculation on every render
+    const menuItems = useMemo(() => {
         const baseItems = [{ name: "Bosh sahifa", href: "/dashboard", icon: Home }]
 
         switch (user?.role) {
@@ -37,6 +39,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             case "manager":
                 return [
                     ...baseItems,
+                    { name: "Foydalanuvchilar", href: "/dashboard/manager/users", icon: Users },
                     { name: "Guruhlar", href: "/dashboard/manager/groups", icon: Users },
                     { name: "Mentorlar", href: "/dashboard/manager/mentors", icon: UserCheck },
                     { name: "Jadval", href: "/dashboard/manager/schedule", icon: Calendar },
@@ -80,9 +83,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             default:
                 return baseItems
         }
-    }
-
-    const menuItems = getMenuItems()
+    }, [user?.role])
 
     return (
         <>

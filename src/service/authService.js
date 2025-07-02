@@ -4,6 +4,26 @@ const API_URL = "https://edubase-backend.vercel.app/api/auth"
 
 // Axios konfiguratsiyasi
 axios.defaults.withCredentials = true
+axios.defaults.timeout = 10000 // 10 soniya timeout
+
+// Request interceptor
+axios.interceptors.request.use(
+    (config) => {
+        return config
+    },
+    (error) => {
+        return Promise.reject(error)
+    },
+)
+
+// Response interceptor - 401 xatolarda faqat error qaytarish
+axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        // 401 xatolarda sahifani qayta yuklamaslik, faqat error qaytarish
+        return Promise.reject(error)
+    },
+)
 
 const authService = {
     // Ro'yxatdan o'tish

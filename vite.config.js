@@ -9,7 +9,19 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:5000",
         changeOrigin: true,
+        secure: false,
       },
     },
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
+  define: {
+    // Environment variables
+    "import.meta.env.PROD": JSON.stringify(process.env.NODE_ENV === "production"),
+  },
 })

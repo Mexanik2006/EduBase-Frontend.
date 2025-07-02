@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom"
+import UserManagement from "../../components/users/UserManagement"
 
 const ManagerGroups = () => (
     <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -32,6 +33,7 @@ const ManagerDashboard = () => {
     return (
         <Routes>
             <Route path="/groups" element={<ManagerGroups />} />
+            <Route path="/users" element={<UserManagement />} />
             <Route path="/mentors" element={<ManagerMentors />} />
             <Route path="/schedule" element={<ManagerSchedule />} />
             <Route path="/reports" element={<ManagerReports />} />

@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Link } from "react-router-dom"
-import { useAuth } from "../../context/AuthContext"
+import { Link, useNavigate } from "react-router-dom"
+import { useAuth } from "../context/AuthContext"
 import { Eye, EyeOff, User, Lock, GraduationCap } from "lucide-react"
 
 const LoginPage = () => {
@@ -12,6 +12,7 @@ const LoginPage = () => {
     })
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
+    const navigate = useNavigate()
 
     const { login } = useAuth()
 
@@ -26,7 +27,12 @@ const LoginPage = () => {
         e.preventDefault()
         setLoading(true)
 
-        await login(formData)
+        const result = await login(formData)
+
+        if (result.needsActivation) {
+            navigate("/activate", { state: { email: result.email } })
+        }
+
         setLoading(false)
     }
 
@@ -119,6 +125,15 @@ const LoginPage = () => {
                                 className="font-medium text-primary-600 hover:text-primary-500 transition duration-200"
                             >
                                 Ro'yxatdan o'ting
+                            </Link>
+                        </p>
+                        <p className="text-sm text-gray-600 mt-2">
+                            Hisobingiz faollashtirilmaganmi?{" "}
+                            <Link
+                                to="/activate"
+                                className="font-medium text-primary-600 hover:text-primary-500 transition duration-200"
+                            >
+                                Faollashtirish
                             </Link>
                         </p>
                     </div>

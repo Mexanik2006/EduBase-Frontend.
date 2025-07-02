@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom"
+import ReceptionStudents from "../pageofreception/ReceptionStudents"
 
 const ReceptionAdmission = () => (
     <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -7,12 +8,12 @@ const ReceptionAdmission = () => (
     </div>
 )
 
-const ReceptionStudents = () => (
-    <div className="bg-white rounded-xl p-6 shadow-sm">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Talabalar</h2>
-        <p className="text-gray-600">Barcha talabalar ro'yxati</p>
-    </div>
-)
+// const ReceptionStudents = () => (
+//     <div className="bg-white rounded-xl p-6 shadow-sm">
+//         <h2 className="text-2xl font-bold text-gray-900 mb-4">Talabalar</h2>
+//         <p className="text-gray-600">Barcha talabalar ro'yxati</p>
+//     </div>
+// )
 
 const ReceptionGroups = () => (
     <div className="bg-white rounded-xl p-6 shadow-sm">

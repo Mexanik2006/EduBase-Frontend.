@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Link } from "react-router-dom"
-import { useAuth } from "../../context/AuthContext"
+import { Link, useNavigate } from "react-router-dom"
+import { useAuth } from "../context/AuthContext"
 import { Eye, EyeOff, User, Mail, Phone, Lock, GraduationCap, UserCheck } from "lucide-react"
 
 const RegisterPage = () => {
@@ -16,6 +16,7 @@ const RegisterPage = () => {
     })
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
+    const navigate = useNavigate()
 
     const { register } = useAuth()
 
@@ -39,7 +40,12 @@ const RegisterPage = () => {
         e.preventDefault()
         setLoading(true)
 
-        await register(formData)
+        const result = await register(formData)
+
+        if (result.success && result.needsActivation) {
+            navigate("/activate", { state: { email: result.email } })
+        }
+
         setLoading(false)
     }
 
