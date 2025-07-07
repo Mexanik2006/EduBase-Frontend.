@@ -4,10 +4,10 @@ import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useNotification } from "../context/NotificationContext"
 import { GraduationCap, Mail, Key, ArrowLeft } from "lucide-react"
-import axios from "axios"
+import axios from "../service/authService"
 
 const ActivationPage = () => {
-    const [step, setStep] = useState(1) // 1: email, 2: code
+    const [step, setStep] = useState(1)
     const [email, setEmail] = useState("")
     const [code, setCode] = useState("")
     const [loading, setLoading] = useState(false)
@@ -15,7 +15,6 @@ const ActivationPage = () => {
     const navigate = useNavigate()
     const location = useLocation()
 
-    // URL dan email olish
     useState(() => {
         const urlEmail = location.state?.email
         if (urlEmail) {
@@ -27,7 +26,6 @@ const ActivationPage = () => {
     const handleSendCode = async (e) => {
         e.preventDefault()
         setLoading(true)
-
         try {
             const response = await axios.post("/api/users/send-activation", { email })
             if (response.data.success) {
@@ -45,7 +43,6 @@ const ActivationPage = () => {
     const handleActivate = async (e) => {
         e.preventDefault()
         setLoading(true)
-
         try {
             const response = await axios.post("/api/users/activate", { email, code })
             if (response.data.success) {
@@ -61,28 +58,30 @@ const ActivationPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-            <div className="max-w-md w-full space-y-8">
-                {/* Logo va sarlavha */}
+        <div className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6 lg:px-8">
+            <div className="w-full max-w-md space-y-8">
+                {/* Logo and Header */}
                 <div className="text-center">
-                    <div className="mx-auto h-16 w-16 bg-primary-600 rounded-full flex items-center justify-center mb-4">
-                        <GraduationCap className="h-8 w-8 text-white" />
+                    <div className="mx-auto h-12 w-12 bg-black rounded-lg flex items-center justify-center mb-6">
+                        <GraduationCap className="h-6 w-6 text-white" />
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Hisobni faollashtirish</h2>
-                    <p className="text-gray-600">{step === 1 ? "Emailingizni kiriting" : "Emailga yuborilgan kodni kiriting"}</p>
+                    <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Hisobni faollashtirish</h1>
+                    <p className="mt-2 text-sm text-gray-600">
+                        {step === 1 ? "Emailingizni kiriting" : "Emailga yuborilgan kodni kiriting"}
+                    </p>
                 </div>
 
-                {/* Activation forma */}
-                <div className="bg-white rounded-xl shadow-lg p-8">
+                {/* Activation Form */}
+                <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
                     {step === 1 ? (
                         <form onSubmit={handleSendCode} className="space-y-6">
                             <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                                <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
                                     Email manzil
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-gray-400" />
+                                        <Mail className="h-4 w-4 text-gray-400" />
                                     </div>
                                     <input
                                         id="email"
@@ -91,19 +90,18 @@ const ActivationPage = () => {
                                         required
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all duration-200"
                                         placeholder="email@example.com"
                                     />
                                 </div>
                             </div>
-
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+                                className="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                             >
                                 {loading ? (
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                 ) : (
                                     "Aktivatsiya kodi yuborish"
                                 )}
@@ -112,12 +110,12 @@ const ActivationPage = () => {
                     ) : (
                         <form onSubmit={handleActivate} className="space-y-6">
                             <div>
-                                <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
+                                <label htmlFor="code" className="block text-sm font-medium text-gray-900 mb-2">
                                     Aktivatsiya kodi
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Key className="h-5 w-5 text-gray-400" />
+                                        <Key className="h-4 w-4 text-gray-400" />
                                     </div>
                                     <input
                                         id="code"
@@ -126,32 +124,30 @@ const ActivationPage = () => {
                                         required
                                         value={code}
                                         onChange={(e) => setCode(e.target.value)}
-                                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
+                                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-center text-lg tracking-widest transition-all duration-200"
                                         placeholder="123456"
                                         maxLength={6}
                                     />
                                 </div>
                                 <p className="mt-2 text-sm text-gray-500">
-                                    Kod <strong>{email}</strong> manziliga yuborildi
+                                    Kod <span className="font-medium">{email}</span> manziliga yuborildi
                                 </p>
                             </div>
-
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200"
+                                className="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                             >
                                 {loading ? (
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                 ) : (
                                     "Hisobni faollashtirish"
                                 )}
                             </button>
-
                             <button
                                 type="button"
                                 onClick={() => setStep(1)}
-                                className="w-full flex items-center justify-center py-2 px-4 text-sm text-gray-600 hover:text-gray-800"
+                                className="w-full flex items-center justify-center py-2 px-4 text-sm text-gray-600 hover:text-gray-800 transition-colors"
                             >
                                 <ArrowLeft className="h-4 w-4 mr-2" />
                                 Orqaga qaytish
@@ -159,13 +155,13 @@ const ActivationPage = () => {
                         </form>
                     )}
 
-                    {/* Login havolasi */}
+                    {/* Login Link */}
                     <div className="mt-6 text-center">
                         <p className="text-sm text-gray-600">
                             Hisobingiz faolmi?{" "}
                             <button
                                 onClick={() => navigate("/login")}
-                                className="font-medium text-primary-600 hover:text-primary-500 transition duration-200"
+                                className="font-medium text-black hover:text-gray-700 transition-colors"
                             >
                                 Kirish
                             </button>

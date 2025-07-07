@@ -1,22 +1,34 @@
 "use client"
+
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useAuth } from "../../context/AuthContext"
 import { useNotification } from "../../context/NotificationContext"
-import { Plus, Search, Users, Archive, Trash2, Edit, RotateCcw, Filter, Download, MoreVertical } from "lucide-react"
-import CreateUserModal from "./CreateUserModal"
-import EditUserModal from "./EditUserModal"
-import axios from "axios"
+import {
+    Plus,
+    Search,
+    BookOpen,
+    Archive,
+    Trash2,
+    Edit,
+    RotateCcw,
+    DollarSign,
+    Filter,
+    Download,
+    Eye,
+} from "lucide-react"
+import CreateSubjectModal from "./CreateSubjectModal"
+import EditSubjectModal from "./EditSubjectModal"
+import subjectService from "../../service/subjectService"
 import ConfirmationModal from "../common/ConfirmationModal"
 
-const UserManagement = () => {
-    const [users, setUsers] = useState([])
-    const [archivedUsers, setArchivedUsers] = useState([])
+const SubjectManagement = () => {
+    const [subjects, setSubjects] = useState([])
+    const [archivedSubjects, setArchivedSubjects] = useState([])
     const [loading, setLoading] = useState(true)
-    const [selectedRole, setSelectedRole] = useState("all")
     const [searchTerm, setSearchTerm] = useState("")
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
-    const [selectedUser, setSelectedUser] = useState(null)
+    const [selectedSubject, setSelectedSubject] = useState(null)
     const [activeTab, setActiveTab] = useState("active")
     const [showFilters, setShowFilters] = useState(false)
     const [stats, setStats] = useState({
@@ -24,9 +36,8 @@ const UserManagement = () => {
         active: 0,
         inactive: 0,
         archived: 0,
+        totalRevenue: 0,
     })
-    const { user } = useAuth()
-    const { showNotification } = useNotification()
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         type: "warning",
@@ -36,112 +47,91 @@ const UserManagement = () => {
         loading: false,
     })
 
-    const roles = [
-        { value: "all", label: "Barcha rollar" },
-        { value: "director", label: "Direktor" },
-        { value: "manager", label: "Menejer" },
-        { value: "mentor", label: "Mentor" },
-        { value: "accountant", label: "Buxgalter" },
-        { value: "reception", label: "Qabulxona" },
-        { value: "student", label: "Talaba" },
-    ]
+    const { user } = useAuth()
+    const { showNotification } = useNotification()
 
-    const fetchUsers = useCallback(async () => {
-        try {
-            setLoading(true)
-            if (activeTab === "active") {
-                // Faol va nofaol foydalanuvchilarni yuklash
-                const [activeResponse, inactiveResponse] = await Promise.all([
-                    axios.get("/api/users?status=active"),
-                    axios.get("/api/users?status=inactive"),
-                ])
-                const activeUsers = activeResponse.data.success ? activeResponse.data.users : []
-                const inactiveUsers = inactiveResponse.data.success ? inactiveResponse.data.users : []
-                const allActiveUsers = [...activeUsers, ...inactiveUsers]
-                setUsers(allActiveUsers)
-            } else {
-                // Arxivlangan foydalanuvchilarni yuklash
-                const response = await axios.get("/api/users?status=archived")
-                if (response.data.success) {
-                    setArchivedUsers(response.data.users)
-                }
-            }
-        } catch (error) {
-            showNotification("Foydalanuvchilarni yuklashda xato", "error")
-        } finally {
-            setLoading(false)
-        }
-    }, [activeTab, showNotification])
-
-    const fetchStats = useCallback(async () => {
-        try {
-            const [activeResponse, inactiveResponse, archivedResponse] = await Promise.all([
-                axios.get("/api/users?status=active"),
-                axios.get("/api/users?status=inactive"),
-                axios.get("/api/users?status=archived"),
-            ])
-
-            const activeCount = activeResponse.data.success ? activeResponse.data.users.length : 0
-            const inactiveCount = inactiveResponse.data.success ? inactiveResponse.data.users.length : 0
-            const archivedCount = archivedResponse.data.success ? archivedResponse.data.users.length : 0
-
-            setStats({
-                total: activeCount + inactiveCount,
-                active: activeCount,
-                inactive: inactiveCount,
-                archived: archivedCount,
-            })
-        } catch (error) {
-            console.error("Statistika yuklashda xato:", error)
+    const calculateStats = useCallback((activeSubjects, archivedSubjects) => {
+        return {
+            total: activeSubjects.length,
+            active: activeSubjects.filter((s) => s.status === "active").length,
+            inactive: activeSubjects.filter((s) => s.status === "inactive").length,
+            archived: archivedSubjects.length,
+            totalRevenue: activeSubjects.reduce((acc, subject) => acc + (subject.price || 0), 0),
         }
     }, [])
 
-    const filteredUsers = useMemo(() => {
-        const currentUsers = activeTab === "active" ? users : archivedUsers
-        let filtered = currentUsers
+    // Fanlarni yuklash
+    const fetchSubjects = useCallback(async () => {
+        try {
+            setLoading(true)
+            // Fetch both active and archived subjects in parallel
+            const [activeResponse, archivedResponse] = await Promise.all([
+                subjectService.getSubjects(),
+                subjectService.getArchivedSubjects(),
+            ])
 
-        if (selectedRole !== "all") {
-            filtered = filtered.filter((user) => user.role === selectedRole)
+            if (activeResponse.success) {
+                setSubjects(activeResponse.subjects)
+            }
+
+            if (archivedResponse.success) {
+                setArchivedSubjects(archivedResponse.subjects)
+            }
+
+            // Calculate stats immediately after fetching
+            const newStats = calculateStats(
+                activeResponse.success ? activeResponse.subjects : [],
+                archivedResponse.success ? archivedResponse.subjects : [],
+            )
+            setStats(newStats)
+        } catch (error) {
+            showNotification("Fanlarni yuklashda xato", "error")
+        } finally {
+            setLoading(false)
         }
+    }, [showNotification, calculateStats])
 
+    // Filterlangan fanlar
+    const filteredSubjects = useMemo(() => {
+        const currentSubjects = activeTab === "active" ? subjects : archivedSubjects
+        let filtered = currentSubjects
+
+        // Search filter
         if (searchTerm.trim()) {
             const searchLower = searchTerm.toLowerCase().trim()
             filtered = filtered.filter(
-                (user) =>
-                    user.name?.toLowerCase().includes(searchLower) ||
-                    user.email?.toLowerCase().includes(searchLower) ||
-                    user.login?.toLowerCase().includes(searchLower),
+                (subject) =>
+                    subject.name?.toLowerCase().includes(searchLower) || subject.description?.toLowerCase().includes(searchLower),
             )
         }
 
         return filtered
-    }, [users, archivedUsers, activeTab, selectedRole, searchTerm])
+    }, [subjects, archivedSubjects, activeTab, searchTerm])
 
     useEffect(() => {
-        fetchUsers()
-        fetchStats()
-    }, [fetchUsers, fetchStats])
+        fetchSubjects()
+    }, [fetchSubjects])
 
-    const handleEdit = useCallback((user) => {
-        setSelectedUser(user)
+    // CRUD operatsiyalar
+    const handleEdit = useCallback((subject) => {
+        setSelectedSubject(subject)
         setShowEditModal(true)
     }, [])
 
     const handleArchive = useCallback(
-        (user) => {
+        (subject) => {
             setConfirmModal({
                 isOpen: true,
                 type: "archive",
-                title: "Foydalanuvchini arxivga yuborish",
-                message: `${user.name} nomli foydalanuvchini arxivga yuborishni tasdiqlaysizmi? Arxivlangan foydalanuvchilar tizimga kira olmaydi, lekin ma'lumotlari saqlanib qoladi.`,
+                title: "Fanni arxivga yuborish",
+                message: `${subject.name} nomli fanni arxivga yuborishni tasdiqlaysizmi? Arxivlangan fanlar faol bo'lmaydi, lekin ma'lumotlari saqlanib qoladi.`,
                 onConfirm: async () => {
                     setConfirmModal((prev) => ({ ...prev, loading: true }))
                     try {
-                        const response = await axios.put(`/api/users/${user._id}/archive`)
-                        if (response.data.success) {
-                            showNotification(response.data.message, "success")
-                            fetchUsers()
-                            fetchStats()
+                        const response = await subjectService.archiveSubject(subject._id)
+                        if (response.success) {
+                            showNotification(response.message, "success")
+                            fetchSubjects()
                             setConfirmModal({
                                 isOpen: false,
                                 type: "warning",
@@ -159,24 +149,23 @@ const UserManagement = () => {
                 },
             })
         },
-        [showNotification, fetchUsers, fetchStats],
+        [showNotification, fetchSubjects],
     )
 
     const handleRestore = useCallback(
-        (user) => {
+        (subject) => {
             setConfirmModal({
                 isOpen: true,
                 type: "restore",
-                title: "Foydalanuvchini qayta tiklash",
-                message: `${user.name} nomli foydalanuvchini qayta tiklamoqchimisiz? Tiklangandan so'ng foydalanuvchi yana tizimga kira oladi.`,
+                title: "Fanni qayta tiklash",
+                message: `${subject.name} nomli fanni qayta tiklamoqchimisiz? Tiklangandan so'ng fan yana faol bo'ladi.`,
                 onConfirm: async () => {
                     setConfirmModal((prev) => ({ ...prev, loading: true }))
                     try {
-                        const response = await axios.put(`/api/users/${user._id}/restore`)
-                        if (response.data.success) {
-                            showNotification(response.data.message, "success")
-                            fetchUsers()
-                            fetchStats()
+                        const response = await subjectService.restoreSubject(subject._id)
+                        if (response.success) {
+                            showNotification(response.message, "success")
+                            fetchSubjects()
                             setConfirmModal({
                                 isOpen: false,
                                 type: "warning",
@@ -194,24 +183,23 @@ const UserManagement = () => {
                 },
             })
         },
-        [showNotification, fetchUsers, fetchStats],
+        [showNotification, fetchSubjects],
     )
 
     const handleDelete = useCallback(
-        (user) => {
+        (subject) => {
             setConfirmModal({
                 isOpen: true,
                 type: "danger",
-                title: "Foydalanuvchini butunlay o'chirish",
-                message: `${user.name} nomli foydalanuvchini butunlay o'chirishni tasdiqlaysizmi? Bu amal qaytarib bo'lmaydi va barcha ma'lumotlar yo'qoladi.`,
+                title: "Fanni butunlay o'chirish",
+                message: `${subject.name} nomli fanni butunlay o'chirishni tasdiqlaysizmi? Bu amal qaytarib bo'lmaydi va barcha ma'lumotlar yo'qoladi.`,
                 onConfirm: async () => {
                     setConfirmModal((prev) => ({ ...prev, loading: true }))
                     try {
-                        const response = await axios.delete(`/api/users/${user._id}`)
-                        if (response.data.success) {
-                            showNotification(response.data.message, "success")
-                            fetchUsers()
-                            fetchStats()
+                        const response = await subjectService.deleteSubject(subject._id)
+                        if (response.success) {
+                            showNotification(response.message, "success")
+                            fetchSubjects()
                             setConfirmModal({
                                 isOpen: false,
                                 type: "warning",
@@ -229,21 +217,10 @@ const UserManagement = () => {
                 },
             })
         },
-        [showNotification, fetchUsers, fetchStats],
+        [showNotification, fetchSubjects],
     )
 
-    const getRoleColor = useCallback((role) => {
-        const colors = {
-            director: "bg-purple-50 text-purple-700 border-purple-200",
-            manager: "bg-blue-50 text-blue-700 border-blue-200",
-            mentor: "bg-green-50 text-green-700 border-green-200",
-            accountant: "bg-yellow-50 text-yellow-700 border-yellow-200",
-            reception: "bg-pink-50 text-pink-700 border-pink-200",
-            student: "bg-gray-50 text-gray-700 border-gray-200",
-        }
-        return colors[role] || "bg-gray-50 text-gray-700 border-gray-200"
-    }, [])
-
+    // Utility functions
     const getStatusColor = useCallback((status) => {
         const colors = {
             active: "bg-green-50 text-green-700 border-green-200",
@@ -262,30 +239,10 @@ const UserManagement = () => {
         return labels[status] || status
     }, [])
 
-    const canCreateUsers = useMemo(() => ["director", "manager", "reception"].includes(user?.role), [user?.role])
-    const canEditUsers = useMemo(() => ["director", "manager"].includes(user?.role), [user?.role])
-
-    const handleModalClose = useCallback(() => {
-        setShowCreateModal(false)
-    }, [])
-
-    const handleEditModalClose = useCallback(() => {
-        setShowEditModal(false)
-        setSelectedUser(null)
-    }, [])
-
-    const handleCreateSuccess = useCallback(() => {
-        setShowCreateModal(false)
-        fetchUsers()
-        fetchStats()
-    }, [fetchUsers, fetchStats])
-
-    const handleEditSuccess = useCallback(() => {
-        setShowEditModal(false)
-        setSelectedUser(null)
-        fetchUsers()
-        fetchStats()
-    }, [fetchUsers, fetchStats])
+    // Permissions
+    const canCreateSubjects = useMemo(() => ["director", "manager"].includes(user?.role), [user?.role])
+    const canEditSubjects = useMemo(() => ["director", "manager"].includes(user?.role), [user?.role])
+    const canDeleteSubjects = useMemo(() => ["director"].includes(user?.role), [user?.role])
 
     return (
         <div className="space-y-8">
@@ -293,8 +250,8 @@ const UserManagement = () => {
             <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-semibold text-gray-900">Foydalanuvchilar</h1>
-                        <p className="text-gray-600 mt-1">Tizim foydalanuvchilarini boshqarish va nazorat qilish</p>
+                        <h1 className="text-2xl font-semibold text-gray-900">Fanlar</h1>
+                        <p className="text-gray-600 mt-1">Fanlarni boshqarish va nazorat qilish</p>
                     </div>
                     <div className="flex items-center space-x-3">
                         <button
@@ -308,13 +265,13 @@ const UserManagement = () => {
                             <Download className="h-4 w-4 mr-2" />
                             Export
                         </button>
-                        {canCreateUsers && (
+                        {canCreateSubjects && (
                             <button
                                 onClick={() => setShowCreateModal(true)}
                                 className="flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                             >
                                 <Plus className="h-4 w-4 mr-2" />
-                                Yangi Foydalanuvchi
+                                Yangi Fan
                             </button>
                         )}
                     </div>
@@ -323,10 +280,16 @@ const UserManagement = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatsCard title="Jami Foydalanuvchilar" value={stats.total} icon={Users} color="blue" change="+12%" />
-                <StatsCard title="Faol" value={stats.active} icon={Users} color="green" change="+8%" />
-                <StatsCard title="Nofaol" value={stats.inactive} icon={Users} color="yellow" change="+5%" />
-                <StatsCard title="Arxivlangan" value={stats.archived} icon={Archive} color="red" change="-2%" />
+                <StatsCard title="Jami Fanlar" value={stats.total} icon={BookOpen} color="blue" change="+12%" />
+                <StatsCard title="Faol Fanlar" value={stats.active} icon={BookOpen} color="green" change="+8%" />
+                <StatsCard
+                    title="Jami Daromad"
+                    value={`${stats.totalRevenue.toLocaleString()}`}
+                    icon={DollarSign}
+                    color="purple"
+                    change="+15%"
+                />
+                <StatsCard title="Arxivlangan" value={stats.archived} icon={Archive} color="orange" change="-2%" />
             </div>
 
             {/* Tabs */}
@@ -336,21 +299,21 @@ const UserManagement = () => {
                         <button
                             onClick={() => setActiveTab("active")}
                             className={`py-4 px-1 border-b-2 font-medium text-sm mr-8 ${activeTab === "active"
-                                    ? "border-gray-900 text-gray-900"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                ? "border-gray-900 text-gray-900"
+                                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                                 }`}
                         >
-                            Faol Foydalanuvchilar ({stats.total})
+                            Faol Fanlar ({stats.total})
                         </button>
-                        {(canEditUsers || user?.role === "reception" || user?.role === "accountant") && (
+                        {canEditSubjects && (
                             <button
                                 onClick={() => setActiveTab("archived")}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === "archived"
-                                        ? "border-gray-900 text-gray-900"
-                                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                    ? "border-gray-900 text-gray-900"
+                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                                     }`}
                             >
-                                Arxivlangan Foydalanuvchilar ({stats.archived})
+                                Arxivlangan Fanlar ({stats.archived})
                             </button>
                         )}
                     </nav>
@@ -360,7 +323,7 @@ const UserManagement = () => {
                 {showFilters && (
                     <div className="p-6 border-b border-gray-200 bg-gray-50">
                         <h3 className="text-lg font-medium text-gray-900 mb-4">Filterlar</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Search */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Qidirish</label>
@@ -368,36 +331,21 @@ const UserManagement = () => {
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     <input
                                         type="text"
-                                        placeholder="Ism, email yoki login..."
+                                        placeholder="Fan nomi, tavsif..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                                     />
                                 </div>
                             </div>
-                            {/* Role filter */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
-                                <select
-                                    value={selectedRole}
-                                    onChange={(e) => setSelectedRole(e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
-                                >
-                                    {roles.map((role) => (
-                                        <option key={role.value} value={role.value}>
-                                            {role.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
                         </div>
                     </div>
                 )}
 
-                {/* Users Content */}
+                {/* Subjects Content */}
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-semibold text-gray-900">Foydalanuvchilar ({filteredUsers.length})</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">Fanlar ({filteredSubjects.length})</h2>
                         {searchTerm && <div className="text-sm text-gray-500">"{searchTerm}" bo'yicha qidiruv</div>}
                     </div>
 
@@ -408,51 +356,46 @@ const UserManagement = () => {
                                 <p className="text-gray-600">Yuklanmoqda...</p>
                             </div>
                         </div>
-                    ) : filteredUsers.length === 0 ? (
+                    ) : filteredSubjects.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Users className="h-8 w-8 text-gray-400" />
+                                <BookOpen className="h-8 w-8 text-gray-400" />
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                {searchTerm
-                                    ? "Foydalanuvchi topilmadi"
-                                    : activeTab === "active"
-                                        ? "Hali foydalanuvchilar yo'q"
-                                        : "Arxivlangan foydalanuvchilar yo'q"}
+                                {searchTerm ? "Fan topilmadi" : activeTab === "active" ? "Hali fanlar yo'q" : "Arxivlangan fanlar yo'q"}
                             </h3>
                             <p className="text-gray-600 mb-4">
                                 {searchTerm
                                     ? "Qidiruv shartlaringizni o'zgartiring"
                                     : activeTab === "active"
-                                        ? canCreateUsers
-                                            ? "Birinchi foydalanuvchini yaratish uchun yuqoridagi tugmani bosing"
-                                            : "Hozircha foydalanuvchilar mavjud emas"
-                                        : "Hali hech qanday foydalanuvchi arxivlanmagan"}
+                                        ? canCreateSubjects
+                                            ? "Birinchi fanni yaratish uchun yuqoridagi tugmani bosing"
+                                            : "Hozircha fanlar mavjud emas"
+                                        : "Hali hech qanday fan arxivlanmagan"}
                             </p>
-                            {canCreateUsers && !searchTerm && activeTab === "active" && (
+                            {canCreateSubjects && !searchTerm && activeTab === "active" && (
                                 <button
                                     onClick={() => setShowCreateModal(true)}
                                     className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
                                 >
-                                    Birinchi foydalanuvchini yarating
+                                    Birinchi fanni yarating
                                 </button>
                             )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredUsers.map((userData) => (
-                                <UserCard
-                                    key={userData._id}
-                                    user={userData}
+                            {filteredSubjects.map((subject) => (
+                                <SubjectCard
+                                    key={subject._id}
+                                    subject={subject}
                                     onEdit={handleEdit}
-                                    onArchive={() => handleArchive(userData)}
-                                    onRestore={() => handleRestore(userData)}
-                                    onDelete={() => handleDelete(userData)}
-                                    getRoleColor={getRoleColor}
+                                    onArchive={() => handleArchive(subject)}
+                                    onRestore={() => handleRestore(subject)}
+                                    onDelete={() => handleDelete(subject)}
                                     getStatusColor={getStatusColor}
                                     getStatusLabel={getStatusLabel}
-                                    canEditUsers={canEditUsers}
-                                    currentUserRole={user?.role}
+                                    canEditSubjects={canEditSubjects}
+                                    canDeleteSubjects={canDeleteSubjects}
                                     activeTab={activeTab}
                                 />
                             ))}
@@ -463,16 +406,32 @@ const UserManagement = () => {
 
             {/* Modals */}
             {showCreateModal && (
-                <CreateUserModal isOpen={showCreateModal} onClose={handleModalClose} onSuccess={handleCreateSuccess} />
-            )}
-            {showEditModal && selectedUser && (
-                <EditUserModal
-                    isOpen={showEditModal}
-                    user={selectedUser}
-                    onClose={handleEditModalClose}
-                    onSuccess={handleEditSuccess}
+                <CreateSubjectModal
+                    isOpen={showCreateModal}
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={() => {
+                        setShowCreateModal(false)
+                        fetchSubjects()
+                    }}
                 />
             )}
+
+            {showEditModal && selectedSubject && (
+                <EditSubjectModal
+                    isOpen={showEditModal}
+                    subject={selectedSubject}
+                    onClose={() => {
+                        setShowEditModal(false)
+                        setSelectedSubject(null)
+                    }}
+                    onSuccess={() => {
+                        setShowEditModal(false)
+                        setSelectedSubject(null)
+                        fetchSubjects()
+                    }}
+                />
+            )}
+
             {/* Confirmation Modal */}
             <ConfirmationModal
                 isOpen={confirmModal.isOpen}
@@ -501,8 +460,8 @@ const StatsCard = ({ title, value, icon: Icon, color, change }) => {
     const colorClasses = {
         blue: "bg-blue-50 border-blue-200 text-blue-600",
         green: "bg-green-50 border-green-200 text-green-600",
-        yellow: "bg-yellow-50 border-yellow-200 text-yellow-600",
-        red: "bg-red-50 border-red-200 text-red-600",
+        purple: "bg-purple-50 border-purple-200 text-purple-600",
+        orange: "bg-orange-50 border-orange-200 text-orange-600",
     }
 
     const changeColor = change.startsWith("+") ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
@@ -523,17 +482,16 @@ const StatsCard = ({ title, value, icon: Icon, color, change }) => {
     )
 }
 
-const UserCard = ({
-    user,
+const SubjectCard = ({
+    subject,
     onEdit,
     onArchive,
     onRestore,
     onDelete,
-    getRoleColor,
     getStatusColor,
     getStatusLabel,
-    canEditUsers,
-    currentUserRole,
+    canEditSubjects,
+    canDeleteSubjects,
     activeTab,
 }) => {
     const [showActions, setShowActions] = useState(false)
@@ -543,12 +501,11 @@ const UserCard = ({
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center space-x-3">
                     <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center">
-                        <span className="text-gray-700 font-medium text-lg">{user.name?.charAt(0)?.toUpperCase() || "U"}</span>
+                        <BookOpen className="h-6 w-6 text-gray-600" />
                     </div>
                     <div>
-                        <h3 className="font-medium text-gray-900">{user.name || "Noma'lum"}</h3>
-                        <p className="text-sm text-gray-600">{user.email || "Email yo'q"}</p>
-                        {user.login && <p className="text-xs text-gray-500">@{user.login}</p>}
+                        <h3 className="font-medium text-gray-900">{subject.name}</h3>
+                        {subject.description && <p className="text-sm text-gray-600">{subject.description}</p>}
                     </div>
                 </div>
                 <div className="relative">
@@ -556,15 +513,24 @@ const UserCard = ({
                         onClick={() => setShowActions(!showActions)}
                         className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
                     >
-                        <MoreVertical className="h-4 w-4" />
+                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
                     </button>
                     {showActions && (
                         <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                             <div className="py-1">
-                                {canEditUsers && activeTab === "active" && (
+                                <button
+                                    onClick={() => setShowActions(false)}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Ko'rish
+                                </button>
+                                {canEditSubjects && activeTab === "active" && (
                                     <button
                                         onClick={() => {
-                                            onEdit(user)
+                                            onEdit(subject)
                                             setShowActions(false)
                                         }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -573,7 +539,7 @@ const UserCard = ({
                                         Tahrirlash
                                     </button>
                                 )}
-                                {canEditUsers && activeTab === "active" && (
+                                {canEditSubjects && activeTab === "active" && (
                                     <button
                                         onClick={() => {
                                             onArchive()
@@ -585,7 +551,7 @@ const UserCard = ({
                                         Arxivga yuborish
                                     </button>
                                 )}
-                                {canEditUsers && activeTab === "archived" && (
+                                {canEditSubjects && activeTab === "archived" && (
                                     <button
                                         onClick={() => {
                                             onRestore()
@@ -597,7 +563,7 @@ const UserCard = ({
                                         Qayta tiklash
                                     </button>
                                 )}
-                                {currentUserRole === "director" && activeTab === "archived" && (
+                                {canDeleteSubjects && activeTab === "archived" && (
                                     <button
                                         onClick={() => {
                                             onDelete()
@@ -616,25 +582,26 @@ const UserCard = ({
             </div>
             <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Rol:</span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getRoleColor(user.role)}`}>
-                        {user.role || "Noma'lum"}
-                    </span>
+                    <span className="text-xs text-gray-500">Narx:</span>
+                    <div className="flex items-center">
+                        <DollarSign className="h-4 w-4 text-gray-400 mr-1" />
+                        <span className="text-sm font-medium text-gray-900">{subject.price?.toLocaleString() || 0} so'm</span>
+                    </div>
                 </div>
                 <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">Status:</span>
                     <span
-                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(user.status)}`}
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(subject.status)}`}
                     >
-                        {getStatusLabel(user.status)}
+                        {getStatusLabel(subject.status)}
                     </span>
                 </div>
             </div>
             <div className="text-xs text-gray-500 border-t border-gray-100 pt-3">
-                Yaratilgan: {user.createdAt ? new Date(user.createdAt).toLocaleDateString("uz-UZ") : "Noma'lum"}
+                Yaratilgan: {new Date(subject.createdAt).toLocaleDateString("uz-UZ")}
             </div>
         </div>
     )
 }
 
-export default UserManagement
+export default SubjectManagement

@@ -1,22 +1,39 @@
 "use client"
+
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useAuth } from "../../context/AuthContext"
 import { useNotification } from "../../context/NotificationContext"
-import { Plus, Search, Users, Archive, Trash2, Edit, RotateCcw, Filter, Download, MoreVertical } from "lucide-react"
-import CreateUserModal from "./CreateUserModal"
-import EditUserModal from "./EditUserModal"
-import axios from "axios"
+import {
+    Plus,
+    Search,
+    Users,
+    Archive,
+    Trash2,
+    Edit,
+    RotateCcw,
+    GraduationCap,
+    User,
+    MapPin,
+    Eye,
+    Filter,
+    Download,
+} from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import CreateGroupModal from "./CreateGroupModal"
+import EditGroupModal from "./EditGroupModal"
+import groupService from "../../service/groupService"
 import ConfirmationModal from "../common/ConfirmationModal"
 
-const UserManagement = () => {
-    const [users, setUsers] = useState([])
-    const [archivedUsers, setArchivedUsers] = useState([])
+const GroupManagement = () => {
+    const [groups, setGroups] = useState([])
+    const [archivedGroups, setArchivedGroups] = useState([])
     const [loading, setLoading] = useState(true)
-    const [selectedRole, setSelectedRole] = useState("all")
+    const [selectedLevel, setSelectedLevel] = useState("all")
+    const [selectedSubject, setSelectedSubject] = useState("all")
     const [searchTerm, setSearchTerm] = useState("")
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
-    const [selectedUser, setSelectedUser] = useState(null)
+    const [selectedGroup, setSelectedGroup] = useState(null)
     const [activeTab, setActiveTab] = useState("active")
     const [showFilters, setShowFilters] = useState(false)
     const [stats, setStats] = useState({
@@ -24,9 +41,8 @@ const UserManagement = () => {
         active: 0,
         inactive: 0,
         archived: 0,
+        totalStudents: 0,
     })
-    const { user } = useAuth()
-    const { showNotification } = useNotification()
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         type: "warning",
@@ -36,111 +52,140 @@ const UserManagement = () => {
         loading: false,
     })
 
-    const roles = [
-        { value: "all", label: "Barcha rollar" },
-        { value: "director", label: "Direktor" },
-        { value: "manager", label: "Menejer" },
-        { value: "mentor", label: "Mentor" },
-        { value: "accountant", label: "Buxgalter" },
-        { value: "reception", label: "Qabulxona" },
-        { value: "student", label: "Talaba" },
+    const { user } = useAuth()
+    const { showNotification } = useNotification()
+    const navigate = useNavigate()
+
+    const levels = [
+        { value: "all", label: "Barcha levellar" },
+        { value: "beginner", label: "Beginner" },
+        { value: "elementary", label: "Elementary" },
+        { value: "intermediate", label: "Intermediate" },
+        { value: "upper-intermediate", label: "Upper-Intermediate" },
+        { value: "advanced", label: "Advanced" },
     ]
 
-    const fetchUsers = useCallback(async () => {
+    const subjects = [
+        { value: "all", label: "Barcha fanlar" },
+        { value: "English", label: "Ingliz tili" },
+        { value: "Russian", label: "Rus tili" },
+        { value: "Korean", label: "Koreys tili" },
+        { value: "German", label: "Nemis tili" },
+        { value: "Mathematics", label: "Matematika" },
+        { value: "Programming", label: "Dasturlash" },
+    ]
+
+    // Guruhlarni yuklash
+    const fetchGroups = useCallback(async () => {
         try {
             setLoading(true)
             if (activeTab === "active") {
-                // Faol va nofaol foydalanuvchilarni yuklash
-                const [activeResponse, inactiveResponse] = await Promise.all([
-                    axios.get("/api/users?status=active"),
-                    axios.get("/api/users?status=inactive"),
-                ])
-                const activeUsers = activeResponse.data.success ? activeResponse.data.users : []
-                const inactiveUsers = inactiveResponse.data.success ? inactiveResponse.data.users : []
-                const allActiveUsers = [...activeUsers, ...inactiveUsers]
-                setUsers(allActiveUsers)
+                const response = await groupService.getGroups()
+                if (response.success) {
+                    // Mentor uchun faqat o'ziga biriktirilgan guruhlar
+                    if (user?.role === "mentor") {
+                        const mentorGroups = response.groups.filter((group) => group.mentor && group.mentor._id === user.id)
+                        setGroups(mentorGroups)
+                    } else {
+                        setGroups(response.groups)
+                    }
+                }
             } else {
-                // Arxivlangan foydalanuvchilarni yuklash
-                const response = await axios.get("/api/users?status=archived")
-                if (response.data.success) {
-                    setArchivedUsers(response.data.users)
+                const response = await groupService.getArchivedGroups()
+                if (response.success) {
+                    setArchivedGroups(response.groups)
                 }
             }
         } catch (error) {
-            showNotification("Foydalanuvchilarni yuklashda xato", "error")
+            showNotification("Guruhlarni yuklashda xato", "error")
         } finally {
             setLoading(false)
         }
-    }, [activeTab, showNotification])
+    }, [activeTab, user, showNotification])
 
+    // Statistikani yuklash
     const fetchStats = useCallback(async () => {
         try {
-            const [activeResponse, inactiveResponse, archivedResponse] = await Promise.all([
-                axios.get("/api/users?status=active"),
-                axios.get("/api/users?status=inactive"),
-                axios.get("/api/users?status=archived"),
-            ])
-
-            const activeCount = activeResponse.data.success ? activeResponse.data.users.length : 0
-            const inactiveCount = inactiveResponse.data.success ? inactiveResponse.data.users.length : 0
-            const archivedCount = archivedResponse.data.success ? archivedResponse.data.users.length : 0
-
-            setStats({
-                total: activeCount + inactiveCount,
-                active: activeCount,
-                inactive: inactiveCount,
-                archived: archivedCount,
-            })
+            const response = await groupService.getGroupStats()
+            if (response.success) {
+                setStats({
+                    total: response.stats.reduce((acc, stat) => acc + stat.count, 0),
+                    active: response.stats.reduce((acc, stat) => acc + stat.active, 0),
+                    inactive: response.stats.reduce((acc, stat) => acc + stat.inactive, 0),
+                    archived: response.archivedCount,
+                    totalStudents: response.totalStudents,
+                })
+            }
         } catch (error) {
             console.error("Statistika yuklashda xato:", error)
         }
     }, [])
 
-    const filteredUsers = useMemo(() => {
-        const currentUsers = activeTab === "active" ? users : archivedUsers
-        let filtered = currentUsers
+    // Filterlangan guruhlar
+    const filteredGroups = useMemo(() => {
+        const currentGroups = activeTab === "active" ? groups : archivedGroups
+        let filtered = currentGroups
 
-        if (selectedRole !== "all") {
-            filtered = filtered.filter((user) => user.role === selectedRole)
+        // Level filter
+        if (selectedLevel !== "all") {
+            filtered = filtered.filter((group) => group.level === selectedLevel)
         }
 
+        // Subject filter
+        if (selectedSubject !== "all") {
+            filtered = filtered.filter((group) => group.subject === selectedSubject)
+        }
+
+        // Search filter
         if (searchTerm.trim()) {
             const searchLower = searchTerm.toLowerCase().trim()
             filtered = filtered.filter(
-                (user) =>
-                    user.name?.toLowerCase().includes(searchLower) ||
-                    user.email?.toLowerCase().includes(searchLower) ||
-                    user.login?.toLowerCase().includes(searchLower),
+                (group) =>
+                    group.name?.toLowerCase().includes(searchLower) ||
+                    group.code?.toLowerCase().includes(searchLower) ||
+                    group.mentor?.name?.toLowerCase().includes(searchLower) ||
+                    group.subject?.toLowerCase().includes(searchLower),
             )
         }
 
         return filtered
-    }, [users, archivedUsers, activeTab, selectedRole, searchTerm])
+    }, [groups, archivedGroups, activeTab, selectedLevel, selectedSubject, searchTerm])
 
     useEffect(() => {
-        fetchUsers()
+        fetchGroups()
         fetchStats()
-    }, [fetchUsers, fetchStats])
+    }, [fetchGroups, fetchStats])
 
-    const handleEdit = useCallback((user) => {
-        setSelectedUser(user)
+    // CRUD operatsiyalar
+    const handleView = useCallback(
+        (group) => {
+            console.log("Viewing group:", group)
+            // Role asosida to'g'ri yo'lni aniqlash
+            const basePath = `/dashboard/${user.role}/groups/${group._id}`
+            navigate(basePath)
+        },
+        [navigate, user.role],
+    )
+
+    const handleEdit = useCallback((group) => {
+        setSelectedGroup(group)
         setShowEditModal(true)
     }, [])
 
     const handleArchive = useCallback(
-        (user) => {
+        (group) => {
             setConfirmModal({
                 isOpen: true,
                 type: "archive",
-                title: "Foydalanuvchini arxivga yuborish",
-                message: `${user.name} nomli foydalanuvchini arxivga yuborishni tasdiqlaysizmi? Arxivlangan foydalanuvchilar tizimga kira olmaydi, lekin ma'lumotlari saqlanib qoladi.`,
+                title: "Guruhni arxivga yuborish",
+                message: `${group.name} nomli guruhni arxivga yuborishni tasdiqlaysizmi? Arxivlangan guruhlar faol bo'lmaydi, lekin ma'lumotlari saqlanib qoladi.`,
                 onConfirm: async () => {
                     setConfirmModal((prev) => ({ ...prev, loading: true }))
                     try {
-                        const response = await axios.put(`/api/users/${user._id}/archive`)
-                        if (response.data.success) {
-                            showNotification(response.data.message, "success")
-                            fetchUsers()
+                        const response = await groupService.archiveGroup(group._id)
+                        if (response.success) {
+                            showNotification(response.message, "success")
+                            fetchGroups()
                             fetchStats()
                             setConfirmModal({
                                 isOpen: false,
@@ -159,23 +204,23 @@ const UserManagement = () => {
                 },
             })
         },
-        [showNotification, fetchUsers, fetchStats],
+        [showNotification, fetchGroups, fetchStats],
     )
 
     const handleRestore = useCallback(
-        (user) => {
+        (group) => {
             setConfirmModal({
                 isOpen: true,
                 type: "restore",
-                title: "Foydalanuvchini qayta tiklash",
-                message: `${user.name} nomli foydalanuvchini qayta tiklamoqchimisiz? Tiklangandan so'ng foydalanuvchi yana tizimga kira oladi.`,
+                title: "Guruhni qayta tiklash",
+                message: `${group.name} nomli guruhni qayta tiklamoqchimisiz? Tiklangandan so'ng guruh yana faol bo'ladi.`,
                 onConfirm: async () => {
                     setConfirmModal((prev) => ({ ...prev, loading: true }))
                     try {
-                        const response = await axios.put(`/api/users/${user._id}/restore`)
-                        if (response.data.success) {
-                            showNotification(response.data.message, "success")
-                            fetchUsers()
+                        const response = await groupService.restoreGroup(group._id)
+                        if (response.success) {
+                            showNotification(response.message, "success")
+                            fetchGroups()
                             fetchStats()
                             setConfirmModal({
                                 isOpen: false,
@@ -194,23 +239,23 @@ const UserManagement = () => {
                 },
             })
         },
-        [showNotification, fetchUsers, fetchStats],
+        [showNotification, fetchGroups, fetchStats],
     )
 
     const handleDelete = useCallback(
-        (user) => {
+        (group) => {
             setConfirmModal({
                 isOpen: true,
                 type: "danger",
-                title: "Foydalanuvchini butunlay o'chirish",
-                message: `${user.name} nomli foydalanuvchini butunlay o'chirishni tasdiqlaysizmi? Bu amal qaytarib bo'lmaydi va barcha ma'lumotlar yo'qoladi.`,
+                title: "Guruhni butunlay o'chirish",
+                message: `${group.name} nomli guruhni butunlay o'chirishni tasdiqlaysizmi? Bu amal qaytarib bo'lmaydi va barcha ma'lumotlar yo'qoladi.`,
                 onConfirm: async () => {
                     setConfirmModal((prev) => ({ ...prev, loading: true }))
                     try {
-                        const response = await axios.delete(`/api/users/${user._id}`)
-                        if (response.data.success) {
-                            showNotification(response.data.message, "success")
-                            fetchUsers()
+                        const response = await groupService.deleteGroup(group._id)
+                        if (response.success) {
+                            showNotification(response.message, "success")
+                            fetchGroups()
                             fetchStats()
                             setConfirmModal({
                                 isOpen: false,
@@ -229,21 +274,10 @@ const UserManagement = () => {
                 },
             })
         },
-        [showNotification, fetchUsers, fetchStats],
+        [showNotification, fetchGroups, fetchStats],
     )
 
-    const getRoleColor = useCallback((role) => {
-        const colors = {
-            director: "bg-purple-50 text-purple-700 border-purple-200",
-            manager: "bg-blue-50 text-blue-700 border-blue-200",
-            mentor: "bg-green-50 text-green-700 border-green-200",
-            accountant: "bg-yellow-50 text-yellow-700 border-yellow-200",
-            reception: "bg-pink-50 text-pink-700 border-pink-200",
-            student: "bg-gray-50 text-gray-700 border-gray-200",
-        }
-        return colors[role] || "bg-gray-50 text-gray-700 border-gray-200"
-    }, [])
-
+    // Utility functions
     const getStatusColor = useCallback((status) => {
         const colors = {
             active: "bg-green-50 text-green-700 border-green-200",
@@ -262,30 +296,21 @@ const UserManagement = () => {
         return labels[status] || status
     }, [])
 
-    const canCreateUsers = useMemo(() => ["director", "manager", "reception"].includes(user?.role), [user?.role])
-    const canEditUsers = useMemo(() => ["director", "manager"].includes(user?.role), [user?.role])
-
-    const handleModalClose = useCallback(() => {
-        setShowCreateModal(false)
+    const getLevelColor = useCallback((level) => {
+        const colors = {
+            beginner: "bg-blue-50 text-blue-700 border-blue-200",
+            elementary: "bg-green-50 text-green-700 border-green-200",
+            intermediate: "bg-yellow-50 text-yellow-700 border-yellow-200",
+            "upper-intermediate": "bg-orange-50 text-orange-700 border-orange-200",
+            advanced: "bg-purple-50 text-purple-700 border-purple-200",
+        }
+        return colors[level] || "bg-gray-50 text-gray-700 border-gray-200"
     }, [])
 
-    const handleEditModalClose = useCallback(() => {
-        setShowEditModal(false)
-        setSelectedUser(null)
-    }, [])
-
-    const handleCreateSuccess = useCallback(() => {
-        setShowCreateModal(false)
-        fetchUsers()
-        fetchStats()
-    }, [fetchUsers, fetchStats])
-
-    const handleEditSuccess = useCallback(() => {
-        setShowEditModal(false)
-        setSelectedUser(null)
-        fetchUsers()
-        fetchStats()
-    }, [fetchUsers, fetchStats])
+    // Permissions
+    const canCreateGroups = useMemo(() => ["director", "manager"].includes(user?.role), [user?.role])
+    const canEditGroups = useMemo(() => ["director", "manager"].includes(user?.role), [user?.role])
+    const canDeleteGroups = useMemo(() => ["director"].includes(user?.role), [user?.role])
 
     return (
         <div className="space-y-8">
@@ -293,8 +318,8 @@ const UserManagement = () => {
             <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-semibold text-gray-900">Foydalanuvchilar</h1>
-                        <p className="text-gray-600 mt-1">Tizim foydalanuvchilarini boshqarish va nazorat qilish</p>
+                        <h1 className="text-2xl font-semibold text-gray-900">Guruhlar</h1>
+                        <p className="text-gray-600 mt-1">Guruhlarni boshqarish va nazorat qilish</p>
                     </div>
                     <div className="flex items-center space-x-3">
                         <button
@@ -308,13 +333,13 @@ const UserManagement = () => {
                             <Download className="h-4 w-4 mr-2" />
                             Export
                         </button>
-                        {canCreateUsers && (
+                        {canCreateGroups && (
                             <button
                                 onClick={() => setShowCreateModal(true)}
                                 className="flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                             >
                                 <Plus className="h-4 w-4 mr-2" />
-                                Yangi Foydalanuvchi
+                                Yangi Guruh
                             </button>
                         )}
                     </div>
@@ -323,10 +348,16 @@ const UserManagement = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatsCard title="Jami Foydalanuvchilar" value={stats.total} icon={Users} color="blue" change="+12%" />
-                <StatsCard title="Faol" value={stats.active} icon={Users} color="green" change="+8%" />
-                <StatsCard title="Nofaol" value={stats.inactive} icon={Users} color="yellow" change="+5%" />
-                <StatsCard title="Arxivlangan" value={stats.archived} icon={Archive} color="red" change="-2%" />
+                <StatsCard title="Jami Guruhlar" value={stats.total} icon={Users} color="blue" change="+12%" />
+                <StatsCard title="Faol Guruhlar" value={stats.active} icon={Users} color="green" change="+8%" />
+                <StatsCard
+                    title="Jami Talabalar"
+                    value={stats.totalStudents}
+                    icon={GraduationCap}
+                    color="purple"
+                    change="+15%"
+                />
+                <StatsCard title="Arxivlangan" value={stats.archived} icon={Archive} color="orange" change="-2%" />
             </div>
 
             {/* Tabs */}
@@ -336,21 +367,21 @@ const UserManagement = () => {
                         <button
                             onClick={() => setActiveTab("active")}
                             className={`py-4 px-1 border-b-2 font-medium text-sm mr-8 ${activeTab === "active"
-                                    ? "border-gray-900 text-gray-900"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                ? "border-gray-900 text-gray-900"
+                                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                                 }`}
                         >
-                            Faol Foydalanuvchilar ({stats.total})
+                            Faol Guruhlar ({stats.total})
                         </button>
-                        {(canEditUsers || user?.role === "reception" || user?.role === "accountant") && (
+                        {(canEditGroups || user?.role === "reception" || user?.role === "accountant") && (
                             <button
                                 onClick={() => setActiveTab("archived")}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === "archived"
-                                        ? "border-gray-900 text-gray-900"
-                                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                                    ? "border-gray-900 text-gray-900"
+                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                                     }`}
                             >
-                                Arxivlangan Foydalanuvchilar ({stats.archived})
+                                Arxivlangan Guruhlar ({stats.archived})
                             </button>
                         )}
                     </nav>
@@ -360,7 +391,7 @@ const UserManagement = () => {
                 {showFilters && (
                     <div className="p-6 border-b border-gray-200 bg-gray-50">
                         <h3 className="text-lg font-medium text-gray-900 mb-4">Filterlar</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Search */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Qidirish</label>
@@ -368,24 +399,39 @@ const UserManagement = () => {
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     <input
                                         type="text"
-                                        placeholder="Ism, email yoki login..."
+                                        placeholder="Guruh nomi, kod, mentor..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                                     />
                                 </div>
                             </div>
-                            {/* Role filter */}
+                            {/* Level filter */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Level</label>
                                 <select
-                                    value={selectedRole}
-                                    onChange={(e) => setSelectedRole(e.target.value)}
+                                    value={selectedLevel}
+                                    onChange={(e) => setSelectedLevel(e.target.value)}
                                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                                 >
-                                    {roles.map((role) => (
-                                        <option key={role.value} value={role.value}>
-                                            {role.label}
+                                    {levels.map((level) => (
+                                        <option key={level.value} value={level.value}>
+                                            {level.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {/* Subject filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Fan</label>
+                                <select
+                                    value={selectedSubject}
+                                    onChange={(e) => setSelectedSubject(e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                                >
+                                    {subjects.map((subject) => (
+                                        <option key={subject.value} value={subject.value}>
+                                            {subject.label}
                                         </option>
                                     ))}
                                 </select>
@@ -394,10 +440,10 @@ const UserManagement = () => {
                     </div>
                 )}
 
-                {/* Users Content */}
+                {/* Groups Content */}
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-semibold text-gray-900">Foydalanuvchilar ({filteredUsers.length})</h2>
+                        <h2 className="text-lg font-semibold text-gray-900">Guruhlar ({filteredGroups.length})</h2>
                         {searchTerm && <div className="text-sm text-gray-500">"{searchTerm}" bo'yicha qidiruv</div>}
                     </div>
 
@@ -408,51 +454,52 @@ const UserManagement = () => {
                                 <p className="text-gray-600">Yuklanmoqda...</p>
                             </div>
                         </div>
-                    ) : filteredUsers.length === 0 ? (
+                    ) : filteredGroups.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Users className="h-8 w-8 text-gray-400" />
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 mb-2">
                                 {searchTerm
-                                    ? "Foydalanuvchi topilmadi"
+                                    ? "Guruh topilmadi"
                                     : activeTab === "active"
-                                        ? "Hali foydalanuvchilar yo'q"
-                                        : "Arxivlangan foydalanuvchilar yo'q"}
+                                        ? "Hali guruhlar yo'q"
+                                        : "Arxivlangan guruhlar yo'q"}
                             </h3>
                             <p className="text-gray-600 mb-4">
                                 {searchTerm
                                     ? "Qidiruv shartlaringizni o'zgartiring"
                                     : activeTab === "active"
-                                        ? canCreateUsers
-                                            ? "Birinchi foydalanuvchini yaratish uchun yuqoridagi tugmani bosing"
-                                            : "Hozircha foydalanuvchilar mavjud emas"
-                                        : "Hali hech qanday foydalanuvchi arxivlanmagan"}
+                                        ? canCreateGroups
+                                            ? "Birinchi guruhni yaratish uchun yuqoridagi tugmani bosing"
+                                            : "Hozircha guruhlar mavjud emas"
+                                        : "Hali hech qanday guruh arxivlanmagan"}
                             </p>
-                            {canCreateUsers && !searchTerm && activeTab === "active" && (
+                            {canCreateGroups && !searchTerm && activeTab === "active" && (
                                 <button
                                     onClick={() => setShowCreateModal(true)}
                                     className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
                                 >
-                                    Birinchi foydalanuvchini yarating
+                                    Birinchi guruhni yarating
                                 </button>
                             )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredUsers.map((userData) => (
-                                <UserCard
-                                    key={userData._id}
-                                    user={userData}
+                            {filteredGroups.map((group) => (
+                                <GroupCard
+                                    key={group._id}
+                                    group={group}
+                                    onView={handleView}
                                     onEdit={handleEdit}
-                                    onArchive={() => handleArchive(userData)}
-                                    onRestore={() => handleRestore(userData)}
-                                    onDelete={() => handleDelete(userData)}
-                                    getRoleColor={getRoleColor}
+                                    onArchive={() => handleArchive(group)}
+                                    onRestore={() => handleRestore(group)}
+                                    onDelete={() => handleDelete(group)}
                                     getStatusColor={getStatusColor}
                                     getStatusLabel={getStatusLabel}
-                                    canEditUsers={canEditUsers}
-                                    currentUserRole={user?.role}
+                                    getLevelColor={getLevelColor}
+                                    canEditGroups={canEditGroups}
+                                    canDeleteGroups={canDeleteGroups}
                                     activeTab={activeTab}
                                 />
                             ))}
@@ -463,16 +510,34 @@ const UserManagement = () => {
 
             {/* Modals */}
             {showCreateModal && (
-                <CreateUserModal isOpen={showCreateModal} onClose={handleModalClose} onSuccess={handleCreateSuccess} />
-            )}
-            {showEditModal && selectedUser && (
-                <EditUserModal
-                    isOpen={showEditModal}
-                    user={selectedUser}
-                    onClose={handleEditModalClose}
-                    onSuccess={handleEditSuccess}
+                <CreateGroupModal
+                    isOpen={showCreateModal}
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={() => {
+                        setShowCreateModal(false)
+                        fetchGroups()
+                        fetchStats()
+                    }}
                 />
             )}
+
+            {showEditModal && selectedGroup && (
+                <EditGroupModal
+                    isOpen={showEditModal}
+                    group={selectedGroup}
+                    onClose={() => {
+                        setShowEditModal(false)
+                        setSelectedGroup(null)
+                    }}
+                    onSuccess={() => {
+                        setShowEditModal(false)
+                        setSelectedGroup(null)
+                        fetchGroups()
+                        fetchStats()
+                    }}
+                />
+            )}
+
             {/* Confirmation Modal */}
             <ConfirmationModal
                 isOpen={confirmModal.isOpen}
@@ -501,8 +566,8 @@ const StatsCard = ({ title, value, icon: Icon, color, change }) => {
     const colorClasses = {
         blue: "bg-blue-50 border-blue-200 text-blue-600",
         green: "bg-green-50 border-green-200 text-green-600",
-        yellow: "bg-yellow-50 border-yellow-200 text-yellow-600",
-        red: "bg-red-50 border-red-200 text-red-600",
+        purple: "bg-purple-50 border-purple-200 text-purple-600",
+        orange: "bg-orange-50 border-orange-200 text-orange-600",
     }
 
     const changeColor = change.startsWith("+") ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
@@ -523,17 +588,18 @@ const StatsCard = ({ title, value, icon: Icon, color, change }) => {
     )
 }
 
-const UserCard = ({
-    user,
+const GroupCard = ({
+    group,
+    onView,
     onEdit,
     onArchive,
     onRestore,
     onDelete,
-    getRoleColor,
     getStatusColor,
     getStatusLabel,
-    canEditUsers,
-    currentUserRole,
+    getLevelColor,
+    canEditGroups,
+    canDeleteGroups,
     activeTab,
 }) => {
     const [showActions, setShowActions] = useState(false)
@@ -543,12 +609,19 @@ const UserCard = ({
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center space-x-3">
                     <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center">
-                        <span className="text-gray-700 font-medium text-lg">{user.name?.charAt(0)?.toUpperCase() || "U"}</span>
+                        <Users className="h-6 w-6 text-gray-600" />
                     </div>
                     <div>
-                        <h3 className="font-medium text-gray-900">{user.name || "Noma'lum"}</h3>
-                        <p className="text-sm text-gray-600">{user.email || "Email yo'q"}</p>
-                        {user.login && <p className="text-xs text-gray-500">@{user.login}</p>}
+                        <h3 className="font-medium text-gray-900">{group.name}</h3>
+                        <p className="text-sm text-gray-600">
+                            {group.code} • {group.subject}
+                        </p>
+                        {group.classroom && (
+                            <div className="text-xs text-gray-500 flex items-center mt-1">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                {group.classroom}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="relative">
@@ -556,15 +629,27 @@ const UserCard = ({
                         onClick={() => setShowActions(!showActions)}
                         className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
                     >
-                        <MoreVertical className="h-4 w-4" />
+                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
                     </button>
                     {showActions && (
                         <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                             <div className="py-1">
-                                {canEditUsers && activeTab === "active" && (
+                                <button
+                                    onClick={() => {
+                                        onView(group)
+                                        setShowActions(false)
+                                    }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Ko'rish
+                                </button>
+                                {canEditGroups && activeTab === "active" && (
                                     <button
                                         onClick={() => {
-                                            onEdit(user)
+                                            onEdit(group)
                                             setShowActions(false)
                                         }}
                                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -573,7 +658,7 @@ const UserCard = ({
                                         Tahrirlash
                                     </button>
                                 )}
-                                {canEditUsers && activeTab === "active" && (
+                                {canEditGroups && activeTab === "active" && (
                                     <button
                                         onClick={() => {
                                             onArchive()
@@ -585,7 +670,7 @@ const UserCard = ({
                                         Arxivga yuborish
                                     </button>
                                 )}
-                                {canEditUsers && activeTab === "archived" && (
+                                {canEditGroups && activeTab === "archived" && (
                                     <button
                                         onClick={() => {
                                             onRestore()
@@ -597,7 +682,7 @@ const UserCard = ({
                                         Qayta tiklash
                                     </button>
                                 )}
-                                {currentUserRole === "director" && activeTab === "archived" && (
+                                {canDeleteGroups && activeTab === "archived" && (
                                     <button
                                         onClick={() => {
                                             onDelete()
@@ -616,25 +701,43 @@ const UserCard = ({
             </div>
             <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Rol:</span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getRoleColor(user.role)}`}>
-                        {user.role || "Noma'lum"}
+                    <span className="text-xs text-gray-500">Mentor:</span>
+                    <div className="flex items-center">
+                        <div className="h-6 w-6 bg-green-100 rounded-full flex items-center justify-center mr-2">
+                            <User className="h-3 w-3 text-green-600" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{group.mentor?.name || "Tayinlanmagan"}</span>
+                    </div>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Talabalar:</span>
+                    <div className="flex items-center">
+                        <GraduationCap className="h-4 w-4 text-gray-400 mr-1" />
+                        <span className="text-sm font-medium text-gray-900">{group.students?.length || 0} ta</span>
+                    </div>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Level:</span>
+                    <span
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getLevelColor(group.level)}`}
+                    >
+                        {group.level}
                     </span>
                 </div>
                 <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">Status:</span>
                     <span
-                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(user.status)}`}
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(group.status)}`}
                     >
-                        {getStatusLabel(user.status)}
+                        {getStatusLabel(group.status)}
                     </span>
                 </div>
             </div>
             <div className="text-xs text-gray-500 border-t border-gray-100 pt-3">
-                Yaratilgan: {user.createdAt ? new Date(user.createdAt).toLocaleDateString("uz-UZ") : "Noma'lum"}
+                Yaratilgan: {new Date(group.createdAt).toLocaleDateString("uz-UZ")}
             </div>
         </div>
     )
 }
 
-export default UserManagement
+export default GroupManagement

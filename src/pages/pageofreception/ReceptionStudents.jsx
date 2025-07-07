@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "../../context/AuthContext"
 import { Plus, Search, Users, GraduationCap, UserCheck, UserX, Send } from "lucide-react"
-import axios from "axios"
+import axios from "../../service/authService"
 import { useNotification } from "../../context/NotificationContext"
 
 // Create Student Modal Component

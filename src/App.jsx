@@ -1,5 +1,3 @@
-"use client"
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { useAuth } from "./context/AuthContext"
 import LoginPage from "./auth/LoginPage"
@@ -12,20 +10,20 @@ import { useMemo } from "react"
 function App() {
   const { user, loading, isInitialized } = useAuth()
 
-  // Memoize the loading component to prevent re-renders
   const loadingComponent = useMemo(
     () => (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Yuklanmoqda...</p>
+          <div className="relative">
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin mx-auto"></div>
+          </div>
+          <p className="mt-4 text-sm text-gray-600 font-medium">Yuklanmoqda...</p>
         </div>
       </div>
     ),
     [],
   )
 
-  // Show loading only if not initialized
   if (!isInitialized || loading) {
     return loadingComponent
   }

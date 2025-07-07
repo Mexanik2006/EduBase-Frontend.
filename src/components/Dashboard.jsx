@@ -8,7 +8,7 @@ import Navbar from "./Navbar"
 import DashboardHome from "./DashboardHome"
 import ProtectedRoute from "./ProtectedRoute"
 
-// Role-based sahifalar
+// Import dashboard components
 import DirectorDashboard from "../pages/dashboards/DirectorDashboard"
 import ManagerDashboard from "../pages/dashboards/ManagerDashboard"
 import MentorDashboard from "../pages/dashboards/MentorDashboard"
@@ -17,94 +17,94 @@ import ReceptionDashboard from "../pages/dashboards/ReceptionDashboard"
 import StudentDashboard from "../pages/dashboards/StudentDashboard"
 
 const Dashboard = () => {
-    const [sidebarOpen, setSidebarOpen] = useState(false)
-    const { user } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { user } = useAuth()
 
-    // Memoize the dashboard layout to prevent unnecessary re-renders
-    const dashboardLayout = useMemo(
-        () => (
-            <div className="flex h-screen bg-gray-100">
-                {/* Sidebar */}
-                <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+  // Memoize the dashboard layout to prevent unnecessary re-renders
+  const dashboardLayout = useMemo(
+    () => (
+      <div className="flex h-screen bg-gray-50">
+        {/* Sidebar */}
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-                {/* Main content */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    {/* Navbar */}
-                    <Navbar setSidebarOpen={setSidebarOpen} />
+        {/* Main content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Navbar */}
+          <Navbar setSidebarOpen={setSidebarOpen} />
 
-                    {/* Page content */}
-                    <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
-                        <Routes>
-                            <Route path="/" element={<DashboardHome />} />
+          {/* Page content */}
+          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
+            <Routes>
+              <Route path="/" element={<DashboardHome />} />
 
-                            {/* Director sahifalari */}
-                            <Route
-                                path="/director/*"
-                                element={
-                                    <ProtectedRoute allowedRoles={["director"]}>
-                                        <DirectorDashboard />
-                                    </ProtectedRoute>
-                                }
-                            />
+              {/* Director sahifalari */}
+              <Route
+                path="/director/*"
+                element={
+                  <ProtectedRoute allowedRoles={["director"]}>
+                    <DirectorDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-                            {/* Manager sahifalari */}
-                            <Route
-                                path="/manager/*"
-                                element={
-                                    <ProtectedRoute allowedRoles={["director", "manager"]}>
-                                        <ManagerDashboard />
-                                    </ProtectedRoute>
-                                }
-                            />
+              {/* Manager sahifalari */}
+              <Route
+                path="/manager/*"
+                element={
+                  <ProtectedRoute allowedRoles={["director", "manager"]}>
+                    <ManagerDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-                            {/* Mentor sahifalari */}
-                            <Route
-                                path="/mentor/*"
-                                element={
-                                    <ProtectedRoute allowedRoles={["director", "manager", "mentor"]}>
-                                        <MentorDashboard />
-                                    </ProtectedRoute>
-                                }
-                            />
+              {/* Mentor sahifalari */}
+              <Route
+                path="/mentor/*"
+                element={
+                  <ProtectedRoute allowedRoles={["director", "manager", "mentor"]}>
+                    <MentorDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-                            {/* Accountant sahifalari */}
-                            <Route
-                                path="/accountant/*"
-                                element={
-                                    <ProtectedRoute allowedRoles={["director", "accountant"]}>
-                                        <AccountantDashboard />
-                                    </ProtectedRoute>
-                                }
-                            />
+              {/* Accountant sahifalari */}
+              <Route
+                path="/accountant/*"
+                element={
+                  <ProtectedRoute allowedRoles={["director", "accountant"]}>
+                    <AccountantDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-                            {/* Reception sahifalari */}
-                            <Route
-                                path="/reception/*"
-                                element={
-                                    <ProtectedRoute allowedRoles={["director", "manager", "reception"]}>
-                                        <ReceptionDashboard />
-                                    </ProtectedRoute>
-                                }
-                            />
+              {/* Reception sahifalari */}
+              <Route
+                path="/reception/*"
+                element={
+                  <ProtectedRoute allowedRoles={["director", "manager", "reception"]}>
+                    <ReceptionDashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-                            {/* Student sahifalari */}
-                            <Route
-                                path="/student/*"
-                                element={
-                                    <ProtectedRoute allowedRoles={["student"]}>
-                                        <StudentDashboard />
-                                    </ProtectedRoute>
-                                }
-                            />
-                        </Routes>
-                    </main>
-                </div>
-            </div>
-        ),
-        [sidebarOpen],
-    )
+              {/* Student sahifalari */}
+              <Route
+                path="/student/*"
+                element={
+                  <ProtectedRoute allowedRoles={["student"]}>
+                    <StudentDashboard />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </main>
+        </div>
+      </div>
+    ),
+    [sidebarOpen],
+  )
 
-    return dashboardLayout
+  return dashboardLayout
 }
 
 export default Dashboard
